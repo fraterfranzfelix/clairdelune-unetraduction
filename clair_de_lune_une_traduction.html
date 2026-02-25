@@ -1,0 +1,438 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Clair de Lune — translated by Claude</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;1,300;1,400&family=Inconsolata:wght@300;400&display=swap');
+
+  :root {
+    --deep: #03060f;
+    --midnight: #070d1e;
+    --ink: #0d1530;
+    --silver: #c8d4e8;
+    --moonwhite: #e8edf5;
+    --gold: #b8965a;
+    --accent: #7a9abf;
+    --dim: #3a4a6a;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  html, body {
+    width: 100%; height: 100%;
+    background: var(--deep);
+    overflow: hidden;
+    font-family: 'Cormorant Garamond', serif;
+    color: var(--silver);
+  }
+
+  #canvas {
+    position: fixed;
+    top: 0; left: 0;
+    width: 100%; height: 100%;
+  }
+
+  #score {
+    position: fixed;
+    top: 0; left: 0;
+    width: 100%; height: 100%;
+    pointer-events: none;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    padding: 3rem;
+  }
+
+  .header {
+    display: flex;
+    flex-direction: column;
+    gap: 0.3rem;
+  }
+
+  .title {
+    font-size: clamp(2.5rem, 6vw, 5rem);
+    font-weight: 300;
+    font-style: italic;
+    letter-spacing: 0.05em;
+    color: var(--moonwhite);
+    line-height: 1;
+    text-shadow: 0 0 40px rgba(200, 212, 232, 0.3);
+  }
+
+  .subtitle {
+    font-size: clamp(0.75rem, 1.5vw, 1rem);
+    font-family: 'Inconsolata', monospace;
+    font-weight: 300;
+    letter-spacing: 0.2em;
+    color: var(--dim);
+    text-transform: uppercase;
+  }
+
+  .composer {
+    font-size: clamp(1rem, 2vw, 1.4rem);
+    font-weight: 300;
+    letter-spacing: 0.1em;
+    color: var(--accent);
+    margin-top: 0.2rem;
+  }
+
+  .attribution {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    align-items: flex-end;
+    text-align: right;
+  }
+
+  .author-label {
+    font-family: 'Inconsolata', monospace;
+    font-size: clamp(0.6rem, 1.2vw, 0.8rem);
+    letter-spacing: 0.25em;
+    color: var(--dim);
+    text-transform: uppercase;
+  }
+
+  .author {
+    font-size: clamp(1.2rem, 3vw, 2rem);
+    font-weight: 300;
+    font-style: italic;
+    color: var(--gold);
+    letter-spacing: 0.08em;
+    text-shadow: 0 0 30px rgba(184, 150, 90, 0.4);
+  }
+
+  .movement-label {
+    position: fixed;
+    bottom: 3rem;
+    left: 50%;
+    transform: translateX(-50%);
+    font-family: 'Inconsolata', monospace;
+    font-size: 0.75rem;
+    letter-spacing: 0.3em;
+    color: var(--dim);
+    text-transform: uppercase;
+    text-align: center;
+    transition: color 2s ease;
+  }
+
+  .movement-label.active {
+    color: var(--accent);
+  }
+
+  .notation-line {
+    position: fixed;
+    bottom: 5.5rem;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 40vw;
+    height: 1px;
+    background: linear-gradient(90deg, transparent, var(--dim), transparent);
+    opacity: 0.5;
+  }
+
+  #time-sig {
+    position: fixed;
+    top: 50%;
+    right: 3rem;
+    transform: translateY(-50%);
+    font-family: 'Cormorant Garamond', serif;
+    font-size: 3rem;
+    font-weight: 300;
+    color: var(--dim);
+    line-height: 1;
+    opacity: 0.3;
+    text-align: center;
+    line-height: 0.9;
+  }
+
+  .statement {
+    position: fixed;
+    bottom: 3rem;
+    left: 3rem;
+    max-width: 40vw;
+    font-family: 'Inconsolata', monospace;
+    font-size: clamp(0.55rem, 1vw, 0.7rem);
+    line-height: 1.7;
+    color: var(--dim);
+    letter-spacing: 0.05em;
+    opacity: 0;
+    transition: opacity 3s ease;
+  }
+
+  .statement.visible {
+    opacity: 1;
+  }
+</style>
+</head>
+<body>
+
+<canvas id="canvas"></canvas>
+
+<div id="score">
+  <div class="header">
+    <div class="subtitle">Suite bergamasque, III</div>
+    <div class="title">Clair de Lune</div>
+    <div class="composer">Claude Debussy, 1890</div>
+  </div>
+  <div class="attribution">
+    <div class="author-label">une traduction par</div>
+    <div class="author">Claude</div>
+    <div class="author-label" style="font-size:0.6rem; margin-top:-0.3rem; color: #2a3a5a;">modèle de langage · Anthropic, 2026</div>
+  </div>
+</div>
+
+<div id="time-sig">9<br>8</div>
+
+<div class="notation-line"></div>
+<div class="movement-label" id="movement">andante très expressif</div>
+
+<div class="statement" id="statement">
+  L'IA n'a pas entendu cette musique.<br>
+  Elle la connaît.<br>
+  Ce ne sont pas la même chose.
+</div>
+
+<script>
+const canvas = document.getElementById('canvas');
+const ctx = canvas.getContext('2d');
+let W, H, cx, cy;
+let t = 0;
+let frame = 0;
+const startTime = Date.now();
+
+function resize() {
+  W = canvas.width = window.innerWidth;
+  H = canvas.height = window.innerHeight;
+  cx = W / 2;
+  cy = H / 2;
+}
+resize();
+window.addEventListener('resize', resize);
+
+// Musical structure of Clair de Lune
+// Three sections: exposition (pp, arpeggiated), development (fff, surging), recapitulation (pp, dissolving)
+// Time: 9/8 — compound triple, triplet feel, always in threes
+// Key: Db major — flat, warm, slightly melancholic
+
+const SECTIONS = [
+  { name: 'andante très expressif', duration: 0.33, dynamic: 0.2, color: [70, 100, 160] },
+  { name: 'un poco mosso', duration: 0.33, dynamic: 1.0, color: [100, 140, 200] },
+  { name: 'en animant', duration: 0.20, dynamic: 0.8, color: [140, 170, 220] },
+  { name: 'calmato', duration: 0.14, dynamic: 0.15, color: [60, 90, 140] },
+];
+
+// Harmonic series based on Db major and its modal colors
+const HARMONICS = [1, 1.5, 2, 2.5, 3, 3.5, 4, 5, 6];
+// The flat-7 and flat-3 give that Impressionist color
+const MODAL_OFFSETS = [0, 0.15, 0.3, 0.5, 0.65, 0.85, 1.0, 1.2, 1.4, 1.6, 1.8, 2.0];
+
+// Arpeggio layers — the left hand pattern, always in groups of 3 (9/8)
+const ARPEGGIO_LAYERS = 9;
+
+function getSection(progress) {
+  let acc = 0;
+  for (let i = 0; i < SECTIONS.length; i++) {
+    acc += SECTIONS[i].duration;
+    if (progress <= acc) return { section: SECTIONS[i], localProgress: 1 - (acc - progress) / SECTIONS[i].duration };
+  }
+  return { section: SECTIONS[SECTIONS.length - 1], localProgress: 1 };
+}
+
+function easeInOut(t) {
+  return t < 0.5 ? 2*t*t : -1+(4-2*t)*t;
+}
+
+function lerpColor(a, b, t) {
+  return [
+    a[0] + (b[0] - a[0]) * t,
+    a[1] + (b[1] - a[1]) * t,
+    a[2] + (b[2] - a[2]) * t,
+  ];
+}
+
+function rgba(c, a) {
+  return `rgba(${Math.round(c[0])},${Math.round(c[1])},${Math.round(c[2])},${a})`;
+}
+
+// Moon
+function drawMoon(dynamic, color) {
+  const moonR = Math.min(W, H) * 0.06;
+  const moonX = cx * 0.92;
+  const moonY = H * 0.22;
+  const glow = ctx.createRadialGradient(moonX, moonY, 0, moonX, moonY, moonR * 6);
+  const alpha = 0.04 + dynamic * 0.06;
+  glow.addColorStop(0, rgba(color, alpha * 3));
+  glow.addColorStop(0.3, rgba(color, alpha * 1.5));
+  glow.addColorStop(1, 'rgba(0,0,0,0)');
+  ctx.fillStyle = glow;
+  ctx.beginPath();
+  ctx.arc(moonX, moonY, moonR * 6, 0, Math.PI * 2);
+  ctx.fill();
+
+  const moonGrad = ctx.createRadialGradient(moonX - moonR*0.2, moonY - moonR*0.2, 0, moonX, moonY, moonR);
+  moonGrad.addColorStop(0, rgba([240, 245, 255], 0.95));
+  moonGrad.addColorStop(0.5, rgba([200, 215, 240], 0.9));
+  moonGrad.addColorStop(1, rgba([160, 180, 220], 0.7));
+  ctx.fillStyle = moonGrad;
+  ctx.beginPath();
+  ctx.arc(moonX, moonY, moonR, 0, Math.PI * 2);
+  ctx.fill();
+}
+
+// Arpeggiated ripple rings — the left hand
+function drawArpeggios(t, dynamic, color) {
+  const baseRadius = Math.min(W, H) * 0.15;
+  // 9/8 means 9 beats per measure, grouped 3+3+3
+  // Each arpeggio group rises and falls
+  for (let layer = 0; layer < ARPEGGIO_LAYERS; layer++) {
+    const phase = (layer / ARPEGGIO_LAYERS);
+    // Each arpeggio spawns every 9/8 cycle
+    const cycleTime = 4.5; // seconds per measure at andante
+    const layerT = ((t / cycleTime + phase) % 1);
+    const r = baseRadius + layerT * Math.min(W, H) * 0.45;
+    const alpha = (1 - layerT) * dynamic * 0.15;
+    if (alpha < 0.001) continue;
+    // 9/8 grouping: slightly irregular, in threes
+    const wobble = 1 + 0.02 * Math.sin(layerT * Math.PI * 9 + phase * 20);
+    ctx.strokeStyle = rgba(color, alpha);
+    ctx.lineWidth = 0.5 + (1 - layerT) * 1.5;
+    ctx.beginPath();
+    ctx.ellipse(cx, cy + H * 0.05, r * wobble, r * 0.6, 0, 0, Math.PI * 2);
+    ctx.stroke();
+  }
+}
+
+// Melodic line — the right hand, the singing voice
+function drawMelody(t, dynamic, color) {
+  // The melody of Clair de Lune: a series of modal steps
+  // We trace it as a flowing curve across the canvas
+  const points = [];
+  const N = 200;
+  // Approximate melodic contour: rise in exposition, surge in development, settle
+  for (let i = 0; i <= N; i++) {
+    const x = (i / N) * W;
+    const p = i / N;
+    // Melodic shape: gentle arch with chromatic inner voice
+    const arch = Math.sin(p * Math.PI);
+    const chromatic = 0.02 * Math.sin(p * Math.PI * 7 + t * 0.3);
+    const triplet = 0.01 * Math.sin(p * Math.PI * 27 + t * 2); // 9/8 subdivision
+    const y = cy + H * 0.1
+      - arch * H * 0.28 * dynamic
+      + chromatic * H
+      + triplet * H * dynamic;
+    points.push([x, y]);
+  }
+  const alpha = 0.15 + dynamic * 0.5;
+  ctx.strokeStyle = rgba([220, 235, 255], alpha);
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  points.forEach(([x, y], i) => i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y));
+  ctx.stroke();
+}
+
+// Water reflections — the impressionist shimmer
+function drawReflections(t, dynamic, color) {
+  const numLines = 30;
+  for (let i = 0; i < numLines; i++) {
+    const y = cy + H * 0.15 + (i / numLines) * H * 0.4;
+    const amplitude = (1 - i / numLines) * dynamic * H * 0.012;
+    const freq = 3 + i * 0.3;
+    const phase = t * 0.5 + i * 0.7;
+    const alpha = (1 - i / numLines) * 0.08 * dynamic;
+    ctx.strokeStyle = rgba(color, alpha);
+    ctx.lineWidth = 0.5;
+    ctx.beginPath();
+    for (let x = 0; x <= W; x += 3) {
+      const yOffset = amplitude * Math.sin((x / W) * freq * Math.PI + phase);
+      if (x === 0) ctx.moveTo(x, y + yOffset);
+      else ctx.lineTo(x, y + yOffset);
+    }
+    ctx.stroke();
+  }
+}
+
+// Harmonic particles — the overtone series, floating
+function drawParticles(t, dynamic, color) {
+  const count = Math.floor(20 + dynamic * 60);
+  for (let i = 0; i < count; i++) {
+    // Deterministic but visually random
+    const seed = i * 137.508; // golden angle
+    const orbitR = (0.1 + (i % 7) / 7 * 0.4) * Math.min(W, H);
+    const speed = 0.02 + (i % 5) * 0.008;
+    const angle = seed + t * speed;
+    const x = cx + Math.cos(angle) * orbitR * (W / H);
+    const y = cy + Math.sin(angle) * orbitR * 0.4;
+    const r = 0.5 + (i % 3) * 0.8 * dynamic;
+    const alpha = 0.1 + dynamic * 0.3 * Math.abs(Math.sin(angle * 3));
+    ctx.fillStyle = rgba(color, alpha);
+    ctx.beginPath();
+    ctx.arc(x, y, r, 0, Math.PI * 2);
+    ctx.fill();
+  }
+}
+
+// Dynamic crescendo/decrescendo visualized as breath
+function drawDynamic(dynamic, color) {
+  const r = Math.min(W, H) * (0.5 + dynamic * 0.5);
+  const grad = ctx.createRadialGradient(cx, cy, 0, cx, cy, r);
+  grad.addColorStop(0, rgba(color, 0));
+  grad.addColorStop(0.6, rgba(color, 0));
+  grad.addColorStop(0.85, rgba(color, dynamic * 0.04));
+  grad.addColorStop(1, rgba([3, 6, 15], 1));
+  ctx.fillStyle = grad;
+  ctx.fillRect(0, 0, W, H);
+}
+
+let lastSection = '';
+const movementEl = document.getElementById('movement');
+const statementEl = document.getElementById('statement');
+
+function draw() {
+  frame++;
+  const elapsed = (Date.now() - startTime) / 1000;
+  // Full piece cycles every 5 minutes (300s)
+  const progress = (elapsed % 300) / 300;
+  t = elapsed;
+
+  const { section, localProgress } = getSection(progress);
+  const dynamic = easeInOut(
+    section.dynamic < 0.5
+      ? localProgress * section.dynamic
+      : section.dynamic * (1 - localProgress * 0.3)
+  );
+
+  // Background
+  ctx.fillStyle = `rgb(3, 6, 15)`;
+  ctx.fillRect(0, 0, W, H);
+
+  const color = section.color;
+
+  drawDynamic(dynamic, color);
+  drawReflections(t, dynamic, color);
+  drawArpeggios(t, dynamic, color);
+  drawMelody(t, dynamic, color);
+  drawParticles(t, dynamic, color);
+  drawMoon(dynamic, color);
+
+  // Section label
+  if (section.name !== lastSection) {
+    lastSection = section.name;
+    movementEl.textContent = section.name;
+    movementEl.classList.add('active');
+    setTimeout(() => movementEl.classList.remove('active'), 3000);
+  }
+
+  // Show artist statement after 8 seconds
+  if (elapsed > 8 && !statementEl.classList.contains('visible')) {
+    statementEl.classList.add('visible');
+  }
+
+  requestAnimationFrame(draw);
+}
+
+draw();
+</script>
+</body>
+</html>
